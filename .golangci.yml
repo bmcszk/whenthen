@@ -1,0 +1,72 @@
+version: "2"
+
+linters:
+  default: none
+  enable:
+    # correctness baseline
+    - govet
+    - errcheck
+    - staticcheck
+    - unused
+    - ineffassign
+    - misspell
+    # style and review hints
+    - gocritic
+    # layout and size
+    - lll
+    - funlen
+    - cyclop
+    - decorder
+    - dupl
+    - unparam
+    # error wrapping
+    - errorlint
+    # directives and test helpers
+    - nolintlint
+    - thelper
+    - tparallel
+    # self-check: this analyzer enforces given/when/then markers on our own tests
+    - whenthen
+
+  settings:
+    lll:
+      line-length: 120
+      tab-width: 1
+    funlen:
+      lines: 60
+      statements: 40
+    cyclop:
+      max-complexity: 10
+    decorder:
+      dec-order:
+        - const
+        - var
+        - type
+        - func
+      disable-dec-num-check: true
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+      allow-unused: false
+    custom:
+      whenthen:
+        path: /home/blaze/.local/lib/golangci/whenthen.so
+        description: every Test function needs given, when and then phases
+
+formatters:
+  enable:
+    - gofmt
+    - gofumpt
+    - goimports
+    - gci
+    - golines
+  settings:
+    gci:
+      sections:
+        - standard
+        - default
+        - prefix(github.com/bmcszk)
+      custom-order: true
+    golines:
+      max-len: 120
+      tab-len: 1
