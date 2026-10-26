@@ -2,28 +2,41 @@
 
 ## Supported versions
 
-The latest tagged release receives fixes. Older tags do not.
+The latest tagged release receives security fixes. Older tags do not.
 
 ## Reporting a vulnerability
 
-Report privately via GitHub's advisory form:
+Report vulnerabilities privately through GitHub's advisory form:
+
 <https://github.com/bmcszk/whenthen/security/advisories/new>
 
-Do not open a public issue for a security report. Include the version, a
-reproduction and the impact you believe it has. Expect an initial reply within a
-week.
+Do not open a public issue for a security report. A good report contains the
+version, a reproduction, and the impact you believe it has.
+
+## Disclosure timeline
+
+- **Acknowledgement** within 5 working days of the report.
+- **Assessment** of severity and affected versions within 10 working days.
+- **Fix and advisory** within 90 days of the report, sooner when the impact is
+  severe. You are credited in the advisory unless you ask otherwise.
+- **Public disclosure** happens with the advisory, after a fix is released.
+
+If a fix takes longer than 90 days, the advisory is published with mitigation
+guidance and the timeline is stated in it.
 
 ## Scope
 
-`whenthen` is a static analyzer. It reads Go source and prints diagnostics; it
-does not execute analyzed code, does not make network calls and has no runtime
-dependencies beyond `golang.org/x/tools`.
+`whenthen` is a static analyzer. It reads Go source and prints diagnostics: it
+does not execute analyzed code, makes no network calls, and depends only on
+`golang.org/x/tools`.
 
-Realistic issues are therefore limited to:
+Realistic vulnerabilities are therefore:
 
-- analyzer crashes or panics on valid input (a denial of service against your CI),
+- a crash or panic on valid input, which is a denial of service against your CI,
 - the Go plugin entry point loading code it should not,
-- supply-chain problems in the release artifacts.
+- supply-chain problems in the published release artifacts.
 
-Anything else — including disagreements with a lint rule — belongs in a normal
-issue.
+Release binaries are built in CI and every artifact ships a sigstore
+`.sigstore.json` bundle, so a tampered download can be detected.
+
+Disagreements with a lint rule are not vulnerabilities — open a normal issue.
