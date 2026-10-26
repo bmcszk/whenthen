@@ -7,4 +7,4 @@
 *.mod text
 *.sum text
 
-testdata/** -diff linguist-vendored
+testdata/** text diff=golang linguist-vendored
