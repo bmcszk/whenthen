@@ -60,6 +60,73 @@ func TestEmptyThen(t *testing.T) {
 	// then the length matches
 } // want `TestEmptyThen: then phase has no statements`
 
+func TestSubtestScoped(t *testing.T) {
+	for _, name := range []string{"a", "b"} {
+		t.Run(name, func(t *testing.T) {
+			// given a raw name
+			raw := name
+
+			// when it is decorated
+			out := raw + "!"
+
+			// then it stays loud
+			if out == "" {
+				t.Fatalf("%s stayed quiet", name)
+			}
+		})
+	}
+}
+
+func TestTableDelegates(t *testing.T) {
+	for _, name := range []string{"a", "b"} {
+		t.Run(name, func(t *testing.T) {
+			// when the name is decorated
+			out := name + "!"
+
+			// then it is loud
+			if out == "" {
+				t.Fatalf("%s stayed quiet", name)
+			}
+		})
+	}
+}
+
+func TestSubtestMissingThen(t *testing.T) {
+	t.Run("only", func(t *testing.T) {
+		// when the name is decorated
+		out := "a!"
+
+		_ = out
+	}) // want `TestSubtestMissingThen: subtest at line [0-9]+: missing then phase\(s\)`
+}
+
+func TestSubtestDanglingGiven(t *testing.T) {
+	t.Run("only", func(t *testing.T) {
+		// given
+		// when the name is decorated
+		out := "a!"
+
+		// then it is loud
+		_ = out
+	}) // want `TestSubtestDanglingGiven: subtest at line [0-9]+: given marker has no statements`
+}
+
+func TestNoMarkersAnywhere(t *testing.T) {
+	_ = 1
+} // want `TestNoMarkersAnywhere: missing when, then phase\(s\)`
+
+func TestProseMentionsThen(t *testing.T) {
+	// given a decode helper
+	// if the blob is empty then decode returns zero
+	decode()
+
+	// when it is called
+	x := decode()
+
+	// then the length matches
+	_ = x
+}
+
 func TestDanglingGiven(t *testing.T) {
 	// given
 	// when the blob is decoded

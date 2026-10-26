@@ -22,6 +22,7 @@ It turns a convention that lives in a document into a gate that fails the build.
 | wrong order | `then before when, want given, when, then` |
 | mandatory marker with no code | `when phase has no statements, a marker must be followed by its code` |
 | optional marker with no code | `given marker has no statements, given is optional: delete the marker or move the setup under it` |
+| subtest breaks a rule | `TestX: subtest at line 12: missing then phase(s)` |
 
 Every message ends with ` [coding-rules: given/when/then]` and starts with the
 test name, so a red build tells you which test and which rule:
@@ -130,6 +131,43 @@ Matching is case-insensitive and whole-word. Only phase comments and fluent
 chain receivers count — bare identifiers and string literals are ignored, so a
 table field named `want` or a slice of phase names never triggers a false
 positive.
+
+**A marker opens the line.** `// when the blob is decoded` is a marker;
+`// if the blob is empty then skip` is prose that happens to contain a phase
+word, so it never counts. That keeps ordinary English out of the gate.
+
+### Subtests
+
+Markers belong to the function body they sit in, so a `t.Run` closure is judged
+on its own statements instead of the test body's:
+
+```go
+func TestDecode(t *testing.T) {
+	for _, name := range names() {
+		t.Run(name, func(t *testing.T) {
+			// given a raw name
+			raw := name
+
+			// when it is decorated
+			out := decorate(raw)
+
+			// then it stays loud
+			if out == "" {
+				t.Fatalf("%s stayed quiet", name)
+			}
+		})
+	}
+}
+```
+
+That test passes without markers of its own: the phases are owned by the
+closure, and a test that only fans out to subtests leaves the phases to them. A
+closure *without* markers is a step of its test and is left alone. A subtest that
+breaks a rule is reported on its own closing brace:
+
+```
+decode_test.go:12:2: TestDecode: subtest at line 14: missing then phase(s) [coding-rules: given/when/then]
+```
 
 ### Aliases
 

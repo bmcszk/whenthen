@@ -4,7 +4,9 @@ package whenthen
 
 import (
 	"go/ast"
+	"go/token"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"golang.org/x/tools/go/analysis"
@@ -33,11 +35,22 @@ var Analyzer = &analysis.Analyzer{
 	Run:  run,
 }
 
-// marker is one phase marker found in a test body: a comment line or a fluent
-// chain receiver such as when.act().
+// marker is one phase marker found in a scope: a comment line or a fluent chain
+// receiver such as when.act().
 type marker struct {
 	line int
 	text string
+}
+
+// scope is one function body that owns its markers: the test body, or a closure
+// such as a t.Run subtest. Markers never cross a func literal boundary, so a
+// subtest is judged on its own statements instead of the test body's.
+type scope struct {
+	body    *ast.BlockStmt
+	label   string // empty for the test body, "subtest at line N" for a closure
+	markers []marker
+	spans   [][2]int
+	end     int
 }
 
 func run(pass *analysis.Pass) (any, error) {
@@ -53,15 +66,62 @@ func checkFile(pass *analysis.Pass, file *ast.File) {
 		if !ok || !isTest(fn) {
 			continue
 		}
-		if msg := violation(pass, file, fn); msg != "" {
-			pass.Reportf(fn.Body.Rbrace, "%s: %s%s", fn.Name.Name, msg, RuleHint)
-		}
+		checkTest(pass, file, fn)
 	}
 }
 
-// violation returns the first broken rule for fn, empty when the test is clean.
-func violation(pass *analysis.Pass, file *ast.File, fn *ast.FuncDecl) string {
-	lineOf, present := locatePhases(bodyMarkers(pass, file, fn))
+// checkTest judges the test body and every subtest closure that carries markers.
+// A test that marks nothing itself but marks its subtests is fine: the phases
+// belong to the closure that owns them.
+func checkTest(pass *analysis.Pass, file *ast.File, fn *ast.FuncDecl) {
+	root := newScope(pass, file, fn.Body, "")
+	children := childScopes(pass, file, fn.Body)
+	if participates(root) || len(children) == 0 {
+		report(pass, fn, root, fn.Body.Rbrace)
+	}
+	for _, child := range children {
+		report(pass, fn, child, child.body.Rbrace)
+	}
+}
+
+// participates reports whether the scope names a phase at all. A bare t.Run call
+// is not a marker, so a test that only fans out to subtests does not participate
+// and leaves the phases to them.
+func participates(s scope) bool {
+	return len(phaseMarkers(s.markers)) > 0
+}
+
+// phaseMarkers drops the selector receivers that name nothing, such as t in
+// t.Run(...).
+func phaseMarkers(markers []marker) []marker {
+	var kept []marker
+	for _, m := range markers {
+		for _, phase := range Phases {
+			if matchesAny(m.text, phase.Aliases) {
+				kept = append(kept, m)
+				break
+			}
+		}
+	}
+	return kept
+}
+
+// report prints the first broken rule of one scope, nothing when it is clean.
+func report(pass *analysis.Pass, fn *ast.FuncDecl, s scope, at token.Pos) {
+	msg := scopeViolation(s)
+	if msg == "" {
+		return
+	}
+	if s.label == "" {
+		pass.Reportf(at, "%s: %s%s", fn.Name.Name, msg, RuleHint)
+		return
+	}
+	pass.Reportf(at, "%s: %s: %s%s", fn.Name.Name, s.label, msg, RuleHint)
+}
+
+// scopeViolation returns the first broken rule for s, empty when s is clean.
+func scopeViolation(s scope) string {
+	lineOf, present := locatePhases(s.markers)
 	if missing := missingPhases(present); len(missing) > 0 {
 		return "missing " + strings.Join(missing, ", ") + " phase(s)"
 	}
@@ -71,19 +131,155 @@ func violation(pass *analysis.Pass, file *ast.File, fn *ast.FuncDecl) string {
 	if msg := outOfOrder(present, lineOf); msg != "" {
 		return msg
 	}
-	bodyEnd := pass.Fset.Position(fn.Body.Rbrace).Line
-	return emptyPhase(present, lineOf, stmtSpans(pass, fn), bodyEnd)
+	return emptyPhase(present, lineOf, s.spans, s.end)
 }
 
-// stmtSpans returns the line span of every top-level statement in the body.
-func stmtSpans(pass *analysis.Pass, fn *ast.FuncDecl) [][2]int {
-	spans := make([][2]int, 0, len(fn.Body.List))
-	for _, stmt := range fn.Body.List {
-		spans = append(spans, [2]int{
-			pass.Fset.Position(stmt.Pos()).Line,
-			pass.Fset.Position(stmt.End()).Line,
-		})
+func newScope(pass *analysis.Pass, file *ast.File, body *ast.BlockStmt, label string) scope {
+	return scope{
+		body:    body,
+		label:   label,
+		markers: scopeMarkers(pass, file, body),
+		spans:   stmtSpans(pass, body),
+		end:     pass.Fset.Position(body.Rbrace).Line,
 	}
+}
+
+// childScopes returns every function literal in body that carries its own
+// markers. A closure without markers is a step of the test, not a test of its
+// own, so it is left alone.
+func childScopes(pass *analysis.Pass, file *ast.File, body *ast.BlockStmt) []scope {
+	var scopes []scope
+	ast.Inspect(body, func(node ast.Node) bool {
+		lit, ok := node.(*ast.FuncLit)
+		if !ok {
+			return true
+		}
+		label := "subtest at line " + strconv.Itoa(litLine(pass, lit))
+		if s := newScope(pass, file, lit.Body, label); len(phaseMarkers(s.markers)) > 0 {
+			scopes = append(scopes, s)
+		}
+		return true
+	})
+	return scopes
+}
+
+// litLine returns the line of the closure's first statement, or of its func
+// keyword when the body is empty.
+func litLine(pass *analysis.Pass, lit *ast.FuncLit) int {
+	if len(lit.Body.List) > 0 {
+		return pass.Fset.Position(lit.Body.List[0].Pos()).Line
+	}
+	return pass.Fset.Position(lit.Type.Func).Line
+}
+
+// scopeMarkers collects phase markers from two styles: phase comments
+// (// given, // when, // then) and fluent chains whose receiver is the phase
+// name (when.act(), then.assert()). Bare identifiers, string literals and
+// anything inside a nested closure do not count.
+func scopeMarkers(pass *analysis.Pass, file *ast.File, body *ast.BlockStmt) []marker {
+	markers := commentMarkers(pass, file, body)
+	ast.Inspect(body, func(node ast.Node) bool {
+		switch n := node.(type) {
+		case *ast.FuncLit:
+			return false
+		case *ast.SelectorExpr:
+			if id, ok := n.X.(*ast.Ident); ok {
+				markers = append(markers, marker{
+					line: pass.Fset.Position(id.Pos()).Line,
+					text: id.Name,
+				})
+			}
+		}
+		return true
+	})
+	return markers
+}
+
+// commentMarkers returns the comments inside body, one marker per line, skipping
+// the comments that belong to a nested closure.
+func commentMarkers(pass *analysis.Pass, file *ast.File, body *ast.BlockStmt) []marker {
+	inner := funcLitRanges(body)
+	var markers []marker
+	for _, group := range file.Comments {
+		if group.Pos() < body.Lbrace || group.End() > body.Rbrace {
+			continue
+		}
+		for _, comment := range group.List {
+			if inRanges(inner, comment.Pos()) {
+				continue
+			}
+			line := pass.Fset.Position(comment.Slash).Line
+			for i, text := range strings.Split(comment.Text, "\n") {
+				if !anyPhaseWord(firstWord(text)) {
+					continue
+				}
+				markers = append(markers, marker{line: line + i, text: strings.TrimSpace(text)})
+			}
+		}
+	}
+	return markers
+}
+
+// firstWord returns the leading word of a comment line with the comment markers
+// stripped. A phase marker has to open the line, so prose that merely mentions
+// "then" mid-sentence does not count.
+func firstWord(text string) string {
+	trimmed := strings.TrimLeft(strings.TrimSpace(text), "/* 	")
+	fields := strings.Fields(trimmed)
+	if len(fields) == 0 {
+		return ""
+	}
+	return strings.Trim(fields[0], "*/")
+}
+
+// anyPhaseWord reports whether word names one of the phases.
+func anyPhaseWord(word string) bool {
+	for _, phase := range Phases {
+		if matchesAny(word, phase.Aliases) {
+			return true
+		}
+	}
+	return false
+}
+
+// funcLitRanges returns the source range of every function literal in body.
+func funcLitRanges(body *ast.BlockStmt) [][2]token.Pos {
+	var ranges [][2]token.Pos
+	ast.Inspect(body, func(node ast.Node) bool {
+		if lit, ok := node.(*ast.FuncLit); ok {
+			ranges = append(ranges, [2]token.Pos{lit.Pos(), lit.End()})
+		}
+		return true
+	})
+	return ranges
+}
+
+func inRanges(ranges [][2]token.Pos, pos token.Pos) bool {
+	for _, r := range ranges {
+		if pos >= r[0] && pos <= r[1] {
+			return true
+		}
+	}
+	return false
+}
+
+// stmtSpans returns the line span of every statement in the scope. Statements
+// inside a nested closure belong to that closure, so a marker above a loop still
+// owns the loop's statements.
+func stmtSpans(pass *analysis.Pass, body *ast.BlockStmt) [][2]int {
+	var spans [][2]int
+	ast.Inspect(body, func(node ast.Node) bool {
+		switch n := node.(type) {
+		case *ast.FuncLit:
+			return false
+		case ast.Stmt:
+			spans = append(spans, [2]int{
+				pass.Fset.Position(n.Pos()).Line,
+				pass.Fset.Position(n.End()).Line,
+			})
+		}
+		return true
+	})
 	return spans
 }
 
@@ -131,48 +327,6 @@ func hasStatement(spans [][2]int, from, to int) bool {
 		}
 	}
 	return false
-}
-
-// bodyMarkers collects phase markers from two styles: phase comments
-// (// given, // when, // then) and fluent chains whose receiver is the phase
-// name (when.act(), then.assert()). Bare identifiers and string literals do not
-// count, so a table field named want or a slice of phase names stays silent.
-func bodyMarkers(pass *analysis.Pass, file *ast.File, fn *ast.FuncDecl) []marker {
-	markers := commentMarkers(pass, file, fn)
-	ast.Inspect(fn.Body, func(node ast.Node) bool {
-		sel, ok := node.(*ast.SelectorExpr)
-		if !ok {
-			return true
-		}
-		receiver, ok := sel.X.(*ast.Ident)
-		if !ok {
-			return true
-		}
-		markers = append(markers, marker{
-			line: pass.Fset.Position(receiver.Pos()).Line,
-			text: receiver.Name,
-		})
-		return true
-	})
-	return markers
-}
-
-// commentMarkers returns the comments inside fn's body, one marker per line.
-func commentMarkers(pass *analysis.Pass, file *ast.File, fn *ast.FuncDecl) []marker {
-	var markers []marker
-	start, end := fn.Body.Lbrace, fn.Body.Rbrace
-	for _, group := range file.Comments {
-		if group.Pos() < start || group.End() > end {
-			continue
-		}
-		for _, comment := range group.List {
-			line := pass.Fset.Position(comment.Slash).Line
-			for i, text := range strings.Split(comment.Text, "\n") {
-				markers = append(markers, marker{line: line + i, text: text})
-			}
-		}
-	}
-	return markers
 }
 
 func locatePhases(markers []marker) ([]int, []bool) {

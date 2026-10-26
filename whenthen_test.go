@@ -252,3 +252,62 @@ func TestHasStatement(t *testing.T) {
 		}
 	}
 }
+
+func TestFirstWord(t *testing.T) {
+	t.Parallel()
+
+	// given comment lines that may or may not open with a phase word
+	cases := []struct {
+		name string
+		text string
+		want string
+	}{
+		{name: "line comment", text: "// when the blob is decoded", want: "when"},
+		{name: "no space after slashes", text: "//given a blob", want: "given"},
+		{name: "block comment", text: "/* then the length matches */", want: "then"},
+		{name: "empty comment", text: "//", want: ""},
+		{name: "prose", text: "// if the blob is empty then skip", want: "if"},
+	}
+	// when each line is split into its leading word
+	got := make([]string, len(cases))
+	for i, tc := range cases {
+		got[i] = firstWord(tc.text)
+	}
+
+	// then only the leading word is returned
+	for i, tc := range cases {
+		if got[i] != tc.want {
+			t.Errorf("%s: firstWord(%q) = %q, want %q", tc.name, tc.text, got[i], tc.want)
+		}
+	}
+}
+
+func TestPhaseMarkers(t *testing.T) {
+	t.Parallel()
+
+	// given markers from a t.Run call, phase comments and plain notes
+	markers := []marker{
+		{line: 1, text: "t"},
+		{line: 2, text: "// when the blob is decoded"},
+		{line: 3, text: "assert"},
+		{line: 4, text: "// notes about the fixture"},
+	}
+
+	// when only the markers that name a phase are kept
+	kept := phaseMarkers(markers)
+
+	// then the notes and the receiver names are dropped
+	want := []int{2, 3}
+	got := make([]int, len(kept))
+	for i, m := range kept {
+		got[i] = m.line
+	}
+	if len(got) != len(want) {
+		t.Fatalf("phaseMarkers kept lines %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("phaseMarkers kept lines %v, want %v", got, want)
+		}
+	}
+}

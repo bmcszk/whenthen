@@ -6,12 +6,25 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Subtests are scopes of their own: a `t.Run` closure is judged on its own
+  statements, so markers inside a closure no longer claim the test body's phase
+  lines. A test that only fans out to subtests leaves the phases to them, and a
+  broken subtest is reported as `TestX: subtest at line N: <rule>`.
+
 ### Changed
 
 - The empty-marker message now depends on the phase. A mandatory phase still says
   `when phase has no statements, a marker must be followed by its code`, while an
   optional one says `given marker has no statements, given is optional: delete the
   marker or move the setup under it`, so the reported fix is the one that applies.
+
+### Fixed
+
+- A marker now has to open the comment line. Prose that merely contains a phase
+  word, such as `// if the blob is empty then skip`, is no longer read as a `then`
+  marker.
 
 ## [0.1.0] - 2026-10-26
 
