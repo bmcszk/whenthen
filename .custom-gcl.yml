@@ -1,7 +1,0 @@
-version: v2.15.0
-name: whenthen-gcl
-destination: ./bin
-plugins:
-  - module: github.com/bmcszk/whenthen
-    import: github.com/bmcszk/whenthen/plugin
-    path: .

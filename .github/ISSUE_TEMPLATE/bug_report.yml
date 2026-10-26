@@ -1,0 +1,50 @@
+name: Bug report
+description: A test file that should pass is reported, or the analyzer crashes.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for the report. Include enough detail to reproduce it without guessing.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: The diagnostic you got, or the crash output.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+      description: What the analyzer should have reported instead.
+    validations:
+      required: true
+  - type: textarea
+    id: test-source
+    attributes:
+      label: Minimal test source
+      description: The smallest `func TestX(t *testing.T)` that reproduces it.
+      render: go
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: whenthen version
+      description: Tag, or the commit you built from.
+    validations:
+      required: true
+  - type: input
+    id: integration
+    attributes:
+      label: How you run it
+      description: "`go vet -vettool`, Go plugin (`.so`), or module plugin (`golangci-lint custom`)."
+    validations:
+      required: true
+  - type: input
+    id: go-version
+    attributes:
+      label: Go version
+      description: Output of `go version`.
+    validations:
+      required: true

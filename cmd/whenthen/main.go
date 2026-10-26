@@ -1,3 +1,5 @@
+// Command whenthen is the `go vet -vettool` binary for the given/when/then
+// analyzer. It is also the singlechecker used by `go vet`.
 package main
 
 import (

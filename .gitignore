@@ -1,2 +1,5 @@
 bin/
+dist/
 custom-gcl*
+coverage.out
+*.so

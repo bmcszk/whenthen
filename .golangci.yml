@@ -25,8 +25,6 @@ linters:
     - nolintlint
     - thelper
     - tparallel
-    # self-check: this analyzer enforces given/when/then markers on our own tests
-    - whenthen
 
   settings:
     lll:
@@ -48,10 +46,6 @@ linters:
       require-explanation: true
       require-specific: true
       allow-unused: false
-    custom:
-      whenthen:
-        path: /home/blaze/.local/lib/golangci/whenthen.so
-        description: every Test function needs given, when and then phases
 
 formatters:
   enable:

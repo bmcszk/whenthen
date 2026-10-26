@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security report
+    url: https://github.com/bmcszk/whenthen/security/advisories/new
+    about: Report vulnerabilities privately, not in a public issue.
+  - name: Contributing guide
+    url: https://github.com/bmcszk/whenthen/blob/master/CONTRIBUTING.md
+    about: Architecture, local gates and the release process.

@@ -1,0 +1,41 @@
+name: Rule proposal
+description: Suggest a new structural rule or a new phase alias.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This linter enforces structure, not style: a rule belongs here only if it
+        can be decided from the AST of a single test function.
+  - type: textarea
+    id: rule
+    attributes:
+      label: The rule
+      description: What should fail, in one sentence.
+    validations:
+      required: true
+  - type: textarea
+    id: example
+    attributes:
+      label: Failing example
+      render: go
+    validations:
+      required: true
+  - type: textarea
+    id: passing
+    attributes:
+      label: Passing example
+      description: The same test, written the way the rule wants it.
+      render: go
+    validations:
+      required: true
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Is the current behaviour a false positive or a missed violation?
+      options:
+        - Missed violation (too permissive)
+        - False positive (too strict)
+        - New rule entirely
+    validations:
+      required: true

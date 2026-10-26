@@ -1,76 +1,56 @@
 # whenthen
 
-`go/analysis` linter: every `func TestX(t *testing.T)` body must mark the when and
-then phases, one phase per line, in the order given, when, then.
+[![CI](https://github.com/bmcszk/whenthen/actions/workflows/ci.yml/badge.svg)](https://github.com/bmcszk/whenthen/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/bmcszk/whenthen/actions/workflows/codeql.yml/badge.svg)](https://github.com/bmcszk/whenthen/actions/workflows/codeql.yml)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/bmcszk/whenthen/badge)](https://securityscorecards.dev/viewer/?uri=github.com/bmcszk/whenthen)
+[![Go Reference](https://pkg.go.dev/badge/github.com/bmcszk/whenthen.svg)](https://pkg.go.dev/github.com/bmcszk/whenthen)
+[![Go Report Card](https://goreportcard.com/badge/github.com/bmcszk/whenthen)](https://goreportcard.com/report/github.com/bmcszk/whenthen)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-Two styles count, pick one per test:
+A `go/analysis` linter that checks your tests are structured: every
+`func TestX(t *testing.T)` has to mark the **when** and **then** phases, one
+phase per line, in the order **given → when → then**.
 
-```go
-// comment style
-// given a decoded blob
-// when it is decoded
-// then the length matches
+It turns a convention that lives in a document into a gate that fails the build.
+
+## What it reports
+
+| Rule | Message |
+|------|---------|
+| missing phases | `missing when, then phase(s)` |
+| both phases on one line | `when and then on the same line, one phase per line` |
+| wrong order | `then before when, want given, when, then` |
+| marker with no code | `when phase has no statements, a marker must be followed by its code` |
+
+Every message ends with ` [coding-rules: given/when/then]` and starts with the
+test name, so a red build tells you which test and which rule:
+
+```
+internal/assets/cel_test.go:18:1: TestDecodeCEL: when and then on the same line, one phase per line [coding-rules: given/when/then] (whenthen)
 ```
 
-```go
-// fluent style, no comments (see the go-fluent-testing skill)
-_, when, then := newParts(t)
+## Install
 
-when.
-	createUser()
-
-then.
-	noError()
-```
-
-Matching is case-insensitive and whole-word. Only phase comments and fluent
-receivers count: bare identifiers and string literals never do, so a table field
-named `want` or a slice of phase names is ignored.
-
-Alias groups in `Phases` (`whenthen.go`), one word from every group:
-
-| group | optional | aliases |
-|-------|----------|---------|
-| given | yes | `given`, `arrange`, `setup` |
-| when  | no  | `when`, `act` |
-| then  | no  | `then`, `assert` |
-
-Messages name the broken rule and carry the `[coding-rules: given/when/then]`
-suffix, so a failing gate points at the rule it enforced.
-
-## A marker must own statements
-
-Markers are phases, not headings: each one has to introduce the code of its
-phase. A marker glued to the next marker owns nothing and is reported as
-`when phase has no statements, a marker must be followed by its code`:
-
-```go
-	// when
-	// reading constant values to verify enum parity
-	// then
-	if got := objdat.ThemeCount; got != 17 {
-```
-
-That `when` phase holds only a comment, so there is no action to observe. Either
-move the marker above real action code, or drop `when` and let the constant
-comparison be the `then`.
-
-## Use as a vet tool (no rebuild)
+### As a vet tool (simplest)
 
 ```bash
 go install github.com/bmcszk/whenthen/cmd/whenthen@latest
 go vet -vettool=$(which whenthen) ./...
 ```
 
-## Use inside golangci-lint
+Exit code is non-zero when a test breaks a rule, so it drops straight into any
+CI step or `justfile` recipe.
 
-### Option A: Go plugin (.so, stock binary)
+### Inside golangci-lint
 
-Works with a CGO-enabled golangci-lint and no rebuild, as long as the toolchain
-and `golang.org/x/tools` version match the binary's:
+Three integration paths exist; pick the one that matches how you install
+golangci-lint.
+
+**1. Go plugin (`.so`)** — stock golangci-lint, no rebuild:
 
 ```bash
-./scripts/build-plugin.sh          # -> ~/.local/lib/golangci/whenthen.so
+git clone https://github.com/bmcszk/whenthen && cd whenthen
+./scripts/build-plugin.sh      # -> ~/.local/lib/golangci/whenthen.so
 ```
 
 ```yaml
@@ -81,48 +61,117 @@ linters:
   settings:
     custom:
       whenthen:
-        path: /path/whenthen.so
-        description: every Test function needs when and then phases
+        path: /home/you/.local/lib/golangci/whenthen.so
+        description: tests must mark given, when and then phases
 ```
 
-Official release binaries are built with `CGO_ENABLED=0` and fail with
-`plugin: not implemented`; use one installed by `go install` (or any
-`CGO_ENABLED=1` build) with the same Go version and `x/tools` version as the .so.
+The `.so` only loads into a CGO-enabled golangci-lint built with the same Go
+version and the same `golang.org/x/tools` version. Official release binaries are
+built with `CGO_ENABLED=0` and answer `plugin: not implemented`; use a binary
+from `go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest`.
 
-### Option B: module plugin (custom binary)
-
-`.custom-gcl.yml`:
+**2. Module plugin (custom binary)** — for teams pinned to a released version:
 
 ```yaml
+# .custom-gcl.yml
 version: v2.15.0
 plugins:
   - module: github.com/bmcszk/whenthen
     import: github.com/bmcszk/whenthen/plugin
-    path: /path/to/whenthen   # or drop path and add version: vX.Y.Z for a tagged release
+    version: v0.1.0
 ```
 
 ```bash
-golangci-lint custom          # builds ./custom-gcl
+golangci-lint custom   # builds ./custom-gcl
 ./custom-gcl run ./...
 ```
 
-`.golangci.yml`:
+Enable it in `.golangci.yml` with `settings.custom.whenthen.type: module`.
 
-```yaml
-version: "2"
-linters:
-  default: none
-  enable: [whenthen]
-  settings:
-    custom:
-      whenthen:
-        type: module
-        description: every Test function needs when and then phases
+**3. `go vet -vettool`** — no golangci-lint at all, see above.
+
+## What counts as a phase
+
+Two styles are accepted. Use one per test.
+
+**Comment markers** — a comment line naming the phase, above the code it
+governs:
+
+```go
+func TestDecodeTRN(t *testing.T) {
+	// given three TRN blobs
+	blobs := loadBlobs(t)
+
+	// when each blob is decoded
+	frames := decodeAll(t, blobs)
+
+	// then the frame counts and data lengths match
+	requireFrameCounts(t, frames, want)
+}
 ```
 
-The custom binary is pinned to the golangci-lint version in `.custom-gcl.yml`;
-rebuild after upgrading.
+**Fluent chains** — the phase is the receiver of the chain, so no comments at
+all:
 
-## Tests
+```go
+func TestCreateUser(t *testing.T) {
+	_, when, then := newParts(t)
 
-`go test ./...` runs the analyzer against `testdata/src/a`.
+	when.
+		createUser("bender")
+
+	then.
+		noError()
+}
+```
+
+Matching is case-insensitive and whole-word. Only phase comments and fluent
+chain receivers count — bare identifiers and string literals are ignored, so a
+table field named `want` or a slice of phase names never triggers a false
+positive.
+
+### Aliases
+
+One word from each group is required:
+
+| Phase | Optional | Aliases |
+|-------|----------|---------|
+| given | yes | `given`, `arrange`, `setup` |
+| when | no | `when`, `act` |
+| then | no | `then`, `assert` |
+
+`given` is optional because setup is not always worth a line — a test can start
+straight at `when`. `when` and `then` are mandatory: a test without an action or
+without an assertion is not a test.
+
+## Why `given` is optional but nothing else is
+
+A test without `when` only exercises a fixture. A test without `then` asserts
+nothing. Both are already broken; the linter just says so before review does.
+
+## FAQ
+
+**Does it check that my assertions are meaningful?** No. It checks structure, not
+substance — that the phases exist, in order, on their own lines, each owning
+code.
+
+**Why not accept `want` as a `then` alias?** `want` is the Go convention for the
+expected value (`// got, want`), not a phase marker. Accepting it would mark
+table-driven tests as structured when nothing is structured.
+
+**What about `t.Run` subtests?** Only `func TestX(t *testing.T)` top-level
+functions are checked. The body can contain any structure you like, including
+subtests — a dispatcher that only calls `t.Run` still needs its own markers.
+
+**Can I disable one rule?** No. Rules are not individually toggleable: the point
+is the whole shape. Use `//nolint:whenthen` with a reason if you must, and expect
+review to ask why.
+
+## Development
+
+Architecture, local gates, testing strategy and the release process live in
+[CONTRIBUTING.md](CONTRIBUTING.md). Security reports: [SECURITY.md](SECURITY.md).
+
+## License
+
+[MIT](LICENSE) © 2026 bmcszk
