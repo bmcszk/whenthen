@@ -11,6 +11,10 @@ A `go/analysis` linter that checks your tests are structured: every
 `func TestX(t *testing.T)` has to mark the **when** and **then** phases, one
 phase per line, in the order **given → when → then**.
 
+The point is readability: with the phases marked, a reader takes in the setup,
+the action and the assertion at a glance instead of parsing the body, and a test
+that cannot name its phases is usually a test doing too much.
+
 It turns a convention that lives in a document into a gate that fails the build.
 
 ## What it reports
