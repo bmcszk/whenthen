@@ -48,4 +48,9 @@ plugin:
     ./scripts/build-plugin.sh
 
 # Run every gate.
-verify: fmt-check lint selfcheck test build
+verify: fmt-check lint selfcheck test build prose-check
+
+# Probe file that must stay clean: prose containing phase words must not be flagged.
+prose-check:
+	go build -o bin/whenthen ./cmd/whenthen
+	go vet -vettool=$(pwd)/bin/whenthen ./testdata/prose/...

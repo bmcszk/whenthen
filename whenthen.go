@@ -1,5 +1,3 @@
-// Package whenthen provides an analyzer that requires the given, when and then
-// phases in every test function, one phase per line.
 package whenthen
 
 import (
@@ -71,8 +69,7 @@ func checkFile(pass *analysis.Pass, file *ast.File) {
 }
 
 // checkTest judges the test body and every subtest closure that carries markers.
-// A test that marks nothing itself but marks its subtests is fine: the phases
-// belong to the closure that owns them.
+// A test that only fans out to subtests leaves the phases to them.
 func checkTest(pass *analysis.Pass, file *ast.File, fn *ast.FuncDecl) {
 	root := newScope(pass, file, fn.Body, "")
 	children := childScopes(pass, file, fn.Body)
@@ -82,28 +79,6 @@ func checkTest(pass *analysis.Pass, file *ast.File, fn *ast.FuncDecl) {
 	for _, child := range children {
 		report(pass, fn, child, child.body.Rbrace)
 	}
-}
-
-// participates reports whether the scope names a phase at all. A bare t.Run call
-// is not a marker, so a test that only fans out to subtests does not participate
-// and leaves the phases to them.
-func participates(s scope) bool {
-	return len(phaseMarkers(s.markers)) > 0
-}
-
-// phaseMarkers drops the selector receivers that name nothing, such as t in
-// t.Run(...).
-func phaseMarkers(markers []marker) []marker {
-	var kept []marker
-	for _, m := range markers {
-		for _, phase := range Phases {
-			if matchesAny(m.text, phase.Aliases) {
-				kept = append(kept, m)
-				break
-			}
-		}
-	}
-	return kept
 }
 
 // report prints the first broken rule of one scope, nothing when it is clean.
@@ -146,7 +121,7 @@ func newScope(pass *analysis.Pass, file *ast.File, body *ast.BlockStmt, label st
 
 // childScopes returns every function literal in body that carries its own
 // markers. A closure without markers is a step of the test, not a test of its
-// own, so it is left alone.
+// own.
 func childScopes(pass *analysis.Pass, file *ast.File, body *ast.BlockStmt) []scope {
 	var scopes []scope
 	ast.Inspect(body, func(node ast.Node) bool {
@@ -196,7 +171,8 @@ func scopeMarkers(pass *analysis.Pass, file *ast.File, body *ast.BlockStmt) []ma
 }
 
 // commentMarkers returns the comments inside body, one marker per line, skipping
-// the comments that belong to a nested closure.
+// the comments that belong to a nested closure. Only phase words open the line;
+// prose that merely contains a phase word is ignored.
 func commentMarkers(pass *analysis.Pass, file *ast.File, body *ast.BlockStmt) []marker {
 	inner := funcLitRanges(body)
 	var markers []marker
@@ -218,28 +194,6 @@ func commentMarkers(pass *analysis.Pass, file *ast.File, body *ast.BlockStmt) []
 		}
 	}
 	return markers
-}
-
-// firstWord returns the leading word of a comment line with the comment markers
-// stripped. A phase marker has to open the line, so prose that merely mentions
-// "then" mid-sentence does not count.
-func firstWord(text string) string {
-	trimmed := strings.TrimLeft(strings.TrimSpace(text), "/* 	")
-	fields := strings.Fields(trimmed)
-	if len(fields) == 0 {
-		return ""
-	}
-	return strings.Trim(fields[0], "*/")
-}
-
-// anyPhaseWord reports whether word names one of the phases.
-func anyPhaseWord(word string) bool {
-	for _, phase := range Phases {
-		if matchesAny(word, phase.Aliases) {
-			return true
-		}
-	}
-	return false
 }
 
 // funcLitRanges returns the source range of every function literal in body.
@@ -395,6 +349,24 @@ func outOfOrder(present []bool, lineOf []int) string {
 	return ""
 }
 
+func participates(s scope) bool {
+	return len(phaseMarkers(s.markers)) > 0
+}
+
+// phaseMarkers drops selector receivers that name nothing, such as t in t.Run(...).
+func phaseMarkers(markers []marker) []marker {
+	var kept []marker
+	for _, m := range markers {
+		for _, phase := range Phases {
+			if matchesAny(m.text, phase.Aliases) {
+				kept = append(kept, m)
+				break
+			}
+		}
+	}
+	return kept
+}
+
 func isTest(fn *ast.FuncDecl) bool {
 	if fn.Recv != nil || fn.Body == nil || !strings.HasPrefix(fn.Name.Name, "Test") {
 		return false
@@ -413,6 +385,28 @@ func isTest(fn *ast.FuncDecl) bool {
 	}
 	pkg, ok := sel.X.(*ast.Ident)
 	return ok && pkg.Name == "testing" && sel.Sel.Name == "T"
+}
+
+// firstWord returns the leading word of a comment line with the comment markers
+// stripped. A phase marker has to open the line, so prose that merely mentions
+// "then" mid-sentence does not count.
+func firstWord(text string) string {
+	trimmed := strings.TrimLeft(strings.TrimSpace(text), "/* \t")
+	fields := strings.Fields(trimmed)
+	if len(fields) == 0 {
+		return ""
+	}
+	return strings.Trim(fields[0], "*/")
+}
+
+// anyPhaseWord reports whether word names one of the phases.
+func anyPhaseWord(word string) bool {
+	for _, phase := range Phases {
+		if matchesAny(word, phase.Aliases) {
+			return true
+		}
+	}
+	return false
 }
 
 func hasWord(text, word string) bool {
