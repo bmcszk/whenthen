@@ -95,10 +95,20 @@ func emptyPhase(present []bool, lineOf []int, spans [][2]int, bodyEnd int) strin
 			continue
 		}
 		if !hasStatement(spans, lineOf[i], nextMarker(present, lineOf, i, bodyEnd)) {
-			return Phases[i].Name + " phase has no statements, a marker must be followed by its code"
+			return emptyPhaseMessage(Phases[i])
 		}
 	}
 	return ""
+}
+
+// emptyPhaseMessage points at the fix that fits the phase: a mandatory phase
+// needs code, an optional one is usually better deleted.
+func emptyPhaseMessage(phase Phase) string {
+	if phase.Optional {
+		return phase.Name + " marker has no statements, " + phase.Name +
+			" is optional: delete the marker or move the setup under it"
+	}
+	return phase.Name + " phase has no statements, a marker must be followed by its code"
 }
 
 // nextMarker returns the line of the closest marker after Phases[i], or one past

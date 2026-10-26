@@ -60,6 +60,13 @@ func TestEmptyThen(t *testing.T) {
 	// then the length matches
 } // want `TestEmptyThen: then phase has no statements`
 
+func TestDanglingGiven(t *testing.T) {
+	// given
+	// when the blob is decoded
+	decode()
+	// then the length matches
+} // want `TestDanglingGiven: given marker has no statements, given is optional`
+
 func TestMissingWhen(t *testing.T) {
 	// given a blob
 	_ = 1

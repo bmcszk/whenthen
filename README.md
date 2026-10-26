@@ -20,7 +20,8 @@ It turns a convention that lives in a document into a gate that fails the build.
 | missing phases | `missing when, then phase(s)` |
 | both phases on one line | `when and then on the same line, one phase per line` |
 | wrong order | `then before when, want given, when, then` |
-| marker with no code | `when phase has no statements, a marker must be followed by its code` |
+| mandatory marker with no code | `when phase has no statements, a marker must be followed by its code` |
+| optional marker with no code | `given marker has no statements, given is optional: delete the marker or move the setup under it` |
 
 Every message ends with ` [coding-rules: given/when/then]` and starts with the
 test name, so a red build tells you which test and which rule:
@@ -143,6 +144,20 @@ One word from each group is required:
 `given` is optional because setup is not always worth a line — a test can start
 straight at `when`. `when` and `then` are mandatory: a test without an action or
 without an assertion is not a test.
+
+### A marker must own statements
+
+A marker names the code right below it, so a marker with no statement under it is
+decoration. The message tells you which fix applies:
+
+* `when phase has no statements, a marker must be followed by its code` — the
+  phase is mandatory, so write the action or assertion it promised.
+* `given marker has no statements, given is optional: delete the marker or move
+  the setup under it` — `given` is optional, so the usual fix is to drop the
+  marker instead of inventing setup code for it.
+
+That keeps agents from "fixing" a dangling `given` by shuffling the test around
+when deleting one line is the whole repair.
 
 ## Why `given` is optional but nothing else is
 

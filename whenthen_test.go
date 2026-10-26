@@ -191,7 +191,7 @@ func TestEmptyPhase(t *testing.T) {
 	const (
 		whenEmpty  = "when phase has no statements, a marker must be followed by its code"
 		thenEmpty  = "then phase has no statements, a marker must be followed by its code"
-		givenEmpty = "given phase has no statements, a marker must be followed by its code"
+		givenEmpty = "given marker has no statements, given is optional: delete the marker or move the setup under it"
 	)
 	spans := [][2]int{{4, 5}, {9, 9}}
 

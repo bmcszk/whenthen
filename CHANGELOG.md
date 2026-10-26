@@ -6,6 +6,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- The empty-marker message now depends on the phase. A mandatory phase still says
+  `when phase has no statements, a marker must be followed by its code`, while an
+  optional one says `given marker has no statements, given is optional: delete the
+  marker or move the setup under it`, so the reported fix is the one that applies.
+
 ## [0.1.0] - 2026-10-26
 
 ### Added
