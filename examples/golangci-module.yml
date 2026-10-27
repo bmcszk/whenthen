@@ -1,0 +1,25 @@
+version: "2"
+
+# Sample config: whenthen as a module plugin.
+#
+# Needs a custom golangci-lint binary, built once per .custom-gcl.yml change:
+#   golangci-lint custom
+#   ./custom-gcl run ./...
+# See .custom-gcl.yml for the plugin declaration.
+
+linters:
+  default: none
+  enable:
+    - govet
+    - errcheck
+    - staticcheck
+    - unused
+    - ineffassign
+    - misspell
+    - whenthen
+
+  settings:
+    custom:
+      whenthen:
+        type: "module"
+        description: every Test function needs when and then phases

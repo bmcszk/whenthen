@@ -1,0 +1,28 @@
+version: "2"
+
+# Sample config: whenthen as a Go plugin (.so), no custom binary needed.
+#
+# Build once per machine and golangci-lint build:
+#   just plugin        # writes ~/.local/lib/golangci/whenthen.so
+#
+# Stock golangci-lint must be CGO-enabled (the Homebrew/release build is not):
+#   go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
+# The .so and the binary must come from the same environment.
+
+linters:
+  default: none
+  enable:
+    - govet
+    - errcheck
+    - staticcheck
+    - unused
+    - ineffassign
+    - misspell
+    - whenthen
+
+  settings:
+    custom:
+      whenthen:
+        path: /home/blaze/.local/lib/golangci/whenthen.so
+        description: every Test function needs when and then phases
+        original-url: github.com/bmcszk/whenthen

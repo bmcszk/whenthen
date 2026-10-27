@@ -84,17 +84,30 @@ version: v2.15.0
 plugins:
   - module: github.com/bmcszk/whenthen
     import: github.com/bmcszk/whenthen/plugin
-    version: v0.1.0
+    version: v0.1.1
 ```
 
 ```bash
-golangci-lint custom   # builds ./custom-gcl
+golangci-lint custom   # builds ./custom-gcl, ~8s
 ./custom-gcl run ./...
 ```
 
 Enable it in `.golangci.yml` with `settings.custom.whenthen.type: module`.
+Ready-made copies of all three configs live in [`examples/`](examples/):
+`golangci-module.yml` + `custom-gcl.yml`, and `golangci-goplugin.yml`.
 
 **3. `go vet -vettool`** — no golangci-lint at all, see above.
+
+### Which path is least work?
+
+- **`.so`** — one `go install` of golangci-lint (CGO on) plus one plugin build
+  per machine. No rebuild when the analyzer changes, but a stale `.so` silently
+  keeps old rules: rebuild it after every `whenthen` upgrade.
+- **Module plugin** — one config file and `golangci-lint custom`. It compiles the
+  analyzer from a pinned release, so every teammate and CI get the same rules and
+  the 8-second rebuild is the only cost. This is the path `devilutionGo` uses and
+  the one to recommend.
+- **`go vet -vettool`** — nothing but `go`.
 
 ## What counts as a phase
 

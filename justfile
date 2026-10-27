@@ -29,10 +29,11 @@ fmt-check:
 fmt:
     golangci-lint fmt
 
-# Dogfood: vet this repository with its own analyzer.
+# Dogfood: vet this repository and the prose fixture with its own analyzer.
 selfcheck:
     go build -o bin/whenthen ./cmd/whenthen
     go vet -vettool=$(pwd)/bin/whenthen ./...
+    go vet -vettool=$(pwd)/bin/whenthen ./testdata/prose/...
 
 # Run the fuzz targets briefly.
 fuzz:
