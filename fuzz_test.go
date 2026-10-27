@@ -8,6 +8,7 @@ func FuzzHasWord(f *testing.F) {
 	f.Add("whenever", "when")
 	f.Add("// then", "then")
 	f.Add("", "")
+	f.Add("\x8e", "\x8e")
 
 	// when hasWord runs on arbitrary comment text
 	f.Fuzz(func(t *testing.T, text, word string) {

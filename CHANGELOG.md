@@ -6,12 +6,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-10-27
+
 ### Added
 
 - Subtests are scopes of their own: a `t.Run` closure is judged on its own
   statements, so markers inside a closure no longer claim the test body's phase
   lines. A test that only fans out to subtests leaves the phases to them, and a
   broken subtest is reported as `TestX: subtest at line N: <rule>`.
+- A fuzz corpus entry for the invalid-UTF-8 comment case, so the panic below
+  cannot come back unnoticed.
 
 ### Changed
 
@@ -25,6 +29,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - A marker now has to open the comment line. Prose that merely contains a phase
   word, such as `// if the blob is empty then skip`, is no longer read as a `then`
   marker.
+- `hasWord` no longer panics on comment text with invalid UTF-8. It used to feed
+  the bytes straight into `regexp.Compile`; the nightly fuzz job found it.
+
+## [0.1.1] - 2026-10-27
+
+Documentation and packaging only: README rewritten for end users, consumer
+integration examples, `.gitattributes` so fixtures diff as Go.
 
 ## [0.1.0] - 2026-10-26
 
@@ -45,5 +56,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `analysistest` fixture suite plus white-box table tests, 93% coverage.
 - Self-check: the repository lints its own tests with the analyzer.
 
-[Unreleased]: https://github.com/bmcszk/whenthen/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/bmcszk/whenthen/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/bmcszk/whenthen/compare/v0.1.1...v0.1.2
+[0.1.1]: https://github.com/bmcszk/whenthen/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/bmcszk/whenthen/releases/tag/v0.1.0

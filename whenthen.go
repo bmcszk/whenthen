@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"golang.org/x/tools/go/analysis"
 )
@@ -410,5 +411,10 @@ func anyPhaseWord(word string) bool {
 }
 
 func hasWord(text, word string) bool {
+	// invalid UTF-8 in either argument makes regexp.Compile panic, and fuzzing
+	// found exactly that: a comment byte sequence and a one-byte word.
+	if !utf8.ValidString(text) || !utf8.ValidString(word) {
+		return false
+	}
 	return regexp.MustCompile(`(?i)\b` + regexp.QuoteMeta(word) + `\b`).MatchString(text)
 }

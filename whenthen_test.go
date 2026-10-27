@@ -114,31 +114,36 @@ func parseIsTest(t *testing.T, src string) bool {
 func TestHasWord(t *testing.T) {
 	t.Parallel()
 
-	// given comment texts and the words to look for
+	// given pairs of comment text and phase word
 	cases := []struct {
+		name string
 		text string
 		word string
 		want bool
 	}{
-		{text: "// when it decodes", word: "when", want: true},
-		{text: "// WHEN it decodes", word: "when", want: true},
-		{text: "// given a blob, then it decodes", word: "then", want: true},
-		{text: "whenever", word: "when", want: false},
-		{text: "assertion", word: "assert", want: false},
-		{text: "when2", word: "when", want: false},
-		{text: "_when", word: "when", want: false},
+		{name: "whole word", text: "// when it decodes", word: "when", want: true},
+		{name: "case insensitive", text: "// WHEN it decodes", word: "when", want: true},
+		{name: "later word", text: "// given a blob, then it decodes", word: "then", want: true},
+		{name: "substring", text: "whenever", word: "when", want: false},
+		{name: "assertion", text: "assertion", word: "assert", want: false},
+		{name: "word with digit", text: "when2", word: "when", want: false},
+		{name: "snake case", text: "_when", word: "when", want: false},
+		{name: "different word", text: "// then", word: "when", want: false},
+		{name: "empty text", text: "", word: "when", want: false},
+		{name: "invalid utf8", text: "\x8e", word: "\x8e", want: false},
 	}
 
-	// when hasWord compares each text with its word
+	// when hasWord is asked for each pair
 	got := make([]bool, len(cases))
 	for i, tc := range cases {
 		got[i] = hasWord(tc.text, tc.word)
 	}
 
-	// then only whole words match, case-insensitively
+	// then only a valid whole-word match counts, and bad UTF-8 never panics
 	for i, tc := range cases {
 		if got[i] != tc.want {
-			t.Errorf("hasWord(%q, %q) = %v, want %v", tc.text, tc.word, got[i], tc.want)
+			t.Errorf("%s: hasWord(%q, %q) = %v, want %v",
+				tc.name, tc.text, tc.word, got[i], tc.want)
 		}
 	}
 }

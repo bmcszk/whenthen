@@ -84,7 +84,7 @@ version: v2.15.0
 plugins:
   - module: github.com/bmcszk/whenthen
     import: github.com/bmcszk/whenthen/plugin
-    version: v0.1.1
+    version: v0.1.2
 ```
 
 ```bash
