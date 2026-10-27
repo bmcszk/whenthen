@@ -6,6 +6,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- The README now presents the integration paths in the order upstream recommends
+  them (module plugin first, Go plugin second), notes that
+  `golangci/golangci-lint-action` v9 builds `.custom-gcl.yml` on its own, and
+  documents the Go 1.24 `go get -tool` route that needs no config at all.
+
 ## [0.1.2] - 2026-10-27
 
 ### Added

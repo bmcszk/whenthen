@@ -49,10 +49,41 @@ CI step or `justfile` recipe.
 
 ### Inside golangci-lint
 
-Three integration paths exist; pick the one that matches how you install
-golangci-lint.
+Upstream recommends the **module plugin** system and says so on both plugin
+pages: the `go-plugin` docs open with "We recommend using Module Plugin System
+instead of the Go Plugin System", and golangci-lint's own contribution guide
+files private linters under that heading too. So the order below is not a
+preference of this project — it is the order upstream gives.
 
-**1. Go plugin (`.so`)** — stock golangci-lint, no rebuild:
+**1. Module plugin (recommended)** — compiles the analyzer into a golangci-lint
+of your own:
+
+```yaml
+# .custom-gcl.yml
+version: v2.15.0
+plugins:
+  - module: github.com/bmcszk/whenthen
+    import: github.com/bmcszk/whenthen/plugin
+    version: v0.1.2
+```
+
+```bash
+golangci-lint custom   # builds ./custom-gcl, ~8s
+./custom-gcl run ./...
+```
+
+Enable it in `.golangci.yml` with `settings.custom.whenthen.type: module`. The
+GitHub Action builds it for you: `golangci/golangci-lint-action` v9.0.0 added
+Module Plugin System support, and the action now "will automatically detect the
+custom build configuration file `.custom-gcl.yml`, build and run the custom
+version of golangci-lint". No extra CI step.
+
+`golangci-lint custom` honours `name:` and `destination:`, so a project can ship
+the merged binary itself instead of asking teammates to build it; that is what
+`kubernetes-sigs/kube-api-linter` does with a published
+`golangci-lint-kube-api-linter`.
+
+**2. Go plugin (`.so`)** — stock golangci-lint, no rebuild, second choice:
 
 ```bash
 git clone https://github.com/bmcszk/whenthen && cd whenthen
@@ -76,38 +107,35 @@ version and the same `golang.org/x/tools` version. Official release binaries are
 built with `CGO_ENABLED=0` and answer `plugin: not implemented`; use a binary
 from `go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest`.
 
-**2. Module plugin (custom binary)** — for teams pinned to a released version:
-
-```yaml
-# .custom-gcl.yml
-version: v2.15.0
-plugins:
-  - module: github.com/bmcszk/whenthen
-    import: github.com/bmcszk/whenthen/plugin
-    version: v0.1.2
-```
+**3. No golangci-lint at all** — see the vet tool section above, or pin the
+binary in `go.mod` with the Go 1.24 `tool` directive:
 
 ```bash
-golangci-lint custom   # builds ./custom-gcl, ~8s
-./custom-gcl run ./...
+go get -tool github.com/bmcszk/whenthen/cmd/whenthen@v0.1.2
+go tool whenthen ./...
 ```
 
-Enable it in `.golangci.yml` with `settings.custom.whenthen.type: module`.
-Ready-made copies of all three configs live in [`examples/`](examples/):
-`golangci-module.yml` + `custom-gcl.yml`, and `golangci-goplugin.yml`.
+That is the only route with no YAML: the version lives in `go.mod`, the checksum
+in `go.sum`, and `go tool` builds and runs the analyzer. It gives you nothing
+else, though — no other linters, no exclusions, no formatters.
 
-**3. `go vet -vettool`** — no golangci-lint at all, see above.
+Ready-made copies of the golangci configs live in [`examples/`](examples/):
+`golangci-module.yml` + `custom-gcl.yml`, and `golangci-goplugin.yml`.
 
 ### Which path is least work?
 
+- **Module plugin** — two small config files and one `golangci-lint custom`, and
+  the official GitHub Action detects the config and builds it, so CI adds
+  nothing. It compiles the analyzer from a pinned release, which means every
+  teammate and CI run get identical rules. **Bump the pinned tag when you
+  upgrade, or you keep linting with retired rules.** This is the path
+  `devilutionGo` uses.
 - **`.so`** — one `go install` of golangci-lint (CGO on) plus one plugin build
-  per machine. No rebuild when the analyzer changes, but a stale `.so` silently
-  keeps old rules: rebuild it after every `whenthen` upgrade.
-- **Module plugin** — one config file and `golangci-lint custom`. It compiles the
-  analyzer from a pinned release, so every teammate and CI get the same rules and
-  the 8-second rebuild is the only cost. This is the path `devilutionGo` uses and
-  the one to recommend.
-- **`go vet -vettool`** — nothing but `go`.
+  per machine, and the same stale-artifact trap: rebuild after every upgrade.
+  Worth it only where a custom binary cannot be built.
+- **`go tool`** — nothing to configure, nothing to rebuild, but it is a
+  single-purpose command rather than a linter inside a suite.
+- **`go vet -vettool`** — the same, spelled the pre-1.24 way.
 
 ## What counts as a phase
 
