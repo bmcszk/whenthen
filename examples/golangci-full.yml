@@ -1,0 +1,189 @@
+# A complete, working config from a real repository — not a snippet.
+#
+# Copied verbatim from github.com/bmcszk/devilutionGo, which is what makes it
+# useful: every line below is in use somewhere, including the per-linter
+# settings, the exclusion rules and the formatters. Copy the whole thing and
+# delete what you disagree with; that is faster than assembling it from the
+# docs, and it shows how whenthen sits next to thirty other linters.
+#
+# Needs .custom-gcl.yml beside it (see examples/custom-gcl.yml) because
+# whenthen is a module plugin: `golangci-lint custom`, then `./custom-gcl run ./...`.
+
+version: "2"
+
+#Repo rules plus the skill-derived rule set from ~/.golangci.yml.
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+run:
+  timeout: 5m
+  issues-exit-code: 1
+  tests: true
+
+linters:
+  default: none
+  enable:
+    # repo baseline
+    - govet
+    - errcheck
+    - bodyclose
+    - misspell
+    - staticcheck
+    - unused
+    - ineffassign
+    - unparam
+    - dupl
+    - nestif
+    - revive
+    - testpackage
+    - thelper
+    # errors
+    - errorlint
+    - errname
+    - wrapcheck
+    # layout and size
+    - lll
+    - decorder
+    - funcorder
+    - cyclop
+    - funlen
+    - intrange
+    # logging
+    - forbidigo
+    # context and database
+    - contextcheck
+    - noctx
+    - rowserrcheck
+    - sqlclosecheck
+    # tests
+    - tparallel
+    - testifylint
+    - gocheckcompilerdirectives
+    - nolintlint
+    # performance
+    - prealloc
+    # private: test-DSL check, module plugin built by .custom-gcl.yml
+    - whenthen
+
+  settings:
+    lll:
+      line-length: 120
+      tab-width: 1
+    cyclop:
+      max-complexity: 10
+    funlen:
+      lines: 60
+      statements: 40
+    prealloc:
+      simple: true
+      range-loops: true
+      for-loops: true
+    forbidigo:
+      analyze-types: true
+      forbid:
+        - pattern: ^fmt\.Print.*$
+          msg: 'golang-error-handling: use log/slog, not fmt.Print'
+        - pattern: ^log\.(Print|Fatal|Panic).*$
+          msg: 'golang-error-handling: use log/slog and return errors'
+    wrapcheck:
+      extra-ignore-sigs:
+        - .Errorf(
+        - errors.Join(
+    testifylint:
+      enable-all: true
+    testpackage:
+      skip-regexp: (^|/)export_test\\.go$
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+      allow-unused: false
+    decorder:
+      dec-order:
+        - const
+        - var
+        - type
+        - func
+      disable-dec-order-check: false
+      disable-init-func-first-check: false
+      disable-dec-num-check: true
+      disable-type-dec-num-check: true
+      disable-const-dec-num-check: true
+      disable-var-dec-num-check: true
+    funcorder:
+      constructor: true
+      struct-method: true
+      function: true
+      alphabetical: false
+    revive:
+      enable-all-rules: true
+      confidence: 0.8
+      rules:
+      - name: package-comments
+        disabled: true
+      - name: package-directory-mismatch
+        disabled: true
+      - name: add-constant
+        disabled: true
+        exclude: ["**/*_test.go"]
+        arguments:
+          - max-lit-count: "3"
+            allow-strs: '""'
+            allow-ints: "0"
+            allow-floats: "0.0"
+      - name: var-naming
+        disabled: true
+      - name: line-length-limit
+        disabled: true
+      - name: function-length
+        arguments: [100, 0]
+      - name: file-length-limit
+        arguments:
+          - max: 1000
+            skip-comments: false
+            skip-blank-lines: false
+      - name: unhandled-error
+        exclude: ["**/*_test.go"]
+      - name: exported
+        disabled: true
+      - name: max-public-structs
+        disabled: true
+    nestif:
+      min-complexity: 4
+    custom:
+      whenthen:
+        type: "module"
+        description: every Test function needs when and then phases
+
+  exclusions:
+    generated: strict
+    rules:
+      - path: '(.+)_test\\.go$'
+        linters:
+          - errcheck
+          - unparam
+
+formatters:
+  enable:
+    - gofmt
+    - gofumpt
+    - goimports
+    - gci
+    - golines
+  settings:
+    gofumpt:
+      extra:
+        group-params: true
+        clothe-returns: true
+    gci:
+      sections:
+        - standard
+        - default
+        - prefix(github.com/bmcszk)
+      custom-order: true
+    golines:
+      max-len: 120
+      tab-len: 1
+  exclusions:
+    generated: strict

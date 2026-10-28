@@ -119,8 +119,10 @@ That is the only route with no YAML: the version lives in `go.mod`, the checksum
 in `go.sum`, and `go tool` builds and runs the analyzer. It gives you nothing
 else, though — no other linters, no exclusions, no formatters.
 
-Ready-made copies of the golangci configs live in [`examples/`](examples/):
-`golangci-module.yml` + `custom-gcl.yml`, and `golangci-goplugin.yml`.
+Ready-made configs live in [`examples/`](examples/): `golangci-module.yml` +
+`custom-gcl.yml` for the module plugin, `golangci-goplugin.yml` for the `.so`,
+and `golangci-full.yml` — a complete 33-linter config copied verbatim from a
+production repository, with whenthen enabled alongside everything else.
 
 ### Which path is least work?
 

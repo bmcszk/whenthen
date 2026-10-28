@@ -6,6 +6,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `examples/golangci-full.yml`: the complete, working config from a production
+  repository, copied verbatim, with whenthen enabled next to thirty-two other
+  linters. The minimal examples show how to wire one linter; this one shows what
+  a real config looks like, including per-linter settings and the exclusion that
+  keeps `errcheck` quiet in tests.
+
 ### Changed
 
 - The README now presents the integration paths in the order upstream recommends
